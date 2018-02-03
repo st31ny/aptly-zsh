@@ -1,0 +1,143 @@
+#compdef aptly
+################################################################################
+# Copyright (C) 2018 Maximilian Stein <m@steiny.biz>
+#   Acknowledgement: Many texts where copied from aptly(1)
+#
+# This project is licensed under the terms of the MIT license.
+# See file LICENSE for details.
+################################################################################
+# zsh completion script for Aptly (http://aptly.info/)
+################################################################################
+
+# see https://man.cx/aptly
+
+local curcontext="$curcontext" state line ret=1
+
+local arch_list="amd64 arm64 armel armhf i386 mips mipsel mips64el ppc64el s390x"
+local bool='bool:(true false)'
+
+_arguments -C \
+    "-architectures=[list of architectures to consider (comma−separated), default to all available]:architectures:_values -s , architectures $arch_list" \
+    "-config=[location of configuration file]:file:_files -g '*.conf'" \
+    "-db-open-attempts=[number of attempts to open DB if it’s locked by other instance]:number:()" \
+    "-dep-follow-all-variants=[when processing dependencies, follow a & b if dependency is ’a|b’]:$bool" \
+    "-dep-follow-recommends=[when processing dependencies, follow Recommends]:$bool" \
+    "-dep-follow-source=[when processing dependencies, follow from binary to Source packages]:$bool" \
+    "-dep-follow-suggests=[when processing dependencies, follow Suggests]:$bool" \
+    "-dep-verbose-resolve=[when processing dependencies, print detailed logs]:$bool" \
+    "-gpg-provider=[PGP implementation]:gpg provider:((gpg\:'external gpg' internal\:'Go internal implementation'))" \
+    '1: :->cmds' \
+    '2: :->subcmd' \
+    '*:: :->args' && ret=0
+
+case $state in
+    cmds)
+        _values "aptly command category" \
+            "mirror[manage, update mirrors of remote repositories]" \
+            "repo[manage local package repositories, add, remove, move, copy packages]" \
+            "snapshot[create, merge, manage snapshots]" \
+            "package[perform operation on the whole collection of packages]" \
+            "publish[publish snapshot or local repository]" \
+            "db[cleanup database and package pool, recover database after failure]" \
+            "task[multi-command tasks]" \
+            "serve[quickly serve published repositories via HTTP]" \
+            "config[configuration management]" \
+            "graph[generate dependency graph]" \
+            "api[REST API service]" \
+            "help[integrated command help]"
+        ret=0 ;;
+    subcmd)
+        case $line[1] in
+            mirror)
+                _values "mirror commands" \
+                    "create[create new mirror of remote repository]" \
+                    "list[show full list of mirrors]" \
+                    "show[show details about a mirror]" \
+                    "drop[delete a mirror]" \
+                    "update[update a mirror]" \
+                    "rename[change name of a mirror]" \
+                    "edit[change settings of a mirror]" \
+                    "search[search mirror for packages matching query]"
+                ret=0 ;;
+            repo)
+                _values "repo commands" \
+                    "add[add packages to local repository]" \
+                    "copy[copy packages between local repositories]" \
+                    "create[create local repository]" \
+                    "drop[delete local repository]" \
+                    "edit[edit properties of local repository]" \
+                    "import[import packages from mirror to local repository]" \
+                    "list[list local repositories]" \
+                    "move[move packages between local repositories]" \
+                    "remove[remove packages from local repository]" \
+                    "show[show details about local repository]" \
+                    "rename[renames local repository]" \
+                    "search[search repo for packages matching query]" \
+                    "include[add packages to local repositories based on .changes files]"
+                ret=0 ;;
+            snapshot)
+                _values "snapshot commands" \
+                    "create[create snapshot of mirror or local repository]" \
+                    "list[list snapshots]" \
+                    "show[show details about snapshot]" \
+                    "verify[verify dependencies in snapshot]" \
+                    "pull[pull packages from another snapshot]" \
+                    "diff[show difference between two snapshots]" \
+                    "merge[merge snapshots]" \
+                    "drop[delete snapshot]" \
+                    "rename[rename snapshot]" \
+                    "search[search snapshot for packages matching query]" \
+                    "filter[filter packages in snapshot producing another snapshot]"
+                ret=0 ;;
+            publish)
+                _values "publish commands" \
+                    "drop[remove published repository]" \
+                    "list[list published repositories]" \
+                    "repo[publish local repository]" \
+                    "snapshot[publish snapshot]" \
+                    "switch[update published repository by switching to new snapshot]" \
+                    "update[update published local repository]" \
+                    "show[shows details of published repository]"
+                ret=0 ;;
+            package)
+                _values "package commands" \
+                    "search[search for packages matching query]" \
+                    "show[show details about packages matching query]"
+                ret=0 ;;
+            db)
+                _values "db commands" \
+                    "cleanup[cleanup db and package pool]" \
+                    "recover[recover db after crash]"
+                ret=0 ;;
+            serve)
+                ret=0 ;;
+            api)
+                _values "api commands" \
+                    "serve[start api http service]"
+                ret=0 ;;
+            graph)
+                ret=0 ;;
+            config)
+                _values "config commands" \
+                    "show[show current aptly config]"
+                ret=0 ;;
+            task)
+                _values "task commands" \
+                    "run[run aptly tasks]"
+                ret=0 ;;
+        esac
+        ;;
+    args)
+        case $line[1] in
+        esac
+        ;;
+esac
+
+return ret
+
+# mode: Shell-Script
+# sh-indentation: 4
+# indent-tabs-mode: nil
+# sh-basic-offset: 4
+# End:
+# vim: ft=zsh sw=4 ts=4 et
