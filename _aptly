@@ -13,8 +13,12 @@
 
 local curcontext="$curcontext" state line cmd subcmd ret=1
 
-local arch_list="amd64 arm64 armel armhf i386 mips mipsel mips64el ppc64el s390x"
+local arch_list=(amd64 arm64 armel armhf i386 mips mipsel mips64el ppc64el s390x)
 local bool='bool:(true false)'
+local dists=({wheezy,jessie,stretch}{,-updates,-backports,-backports-sloopy} buster sid experimental)
+local components=(main contrib non-free)
+
+local keyring="*-keyring=[gpg keyring to use when verifying Release file (could be specified multiple times)]:keyring file:_files -g '*.gpg'"
 
 local help='help[integrated command help]'
 
@@ -34,7 +38,7 @@ local help='help[integrated command help]'
             "graph[generate dependency graph]" \
             "api[REST API service]"
         ret=0
-    }
+}
 
 # complete subcommand
 (( $+functions[_aptly-subcmd] )) ||
@@ -113,7 +117,7 @@ local help='help[integrated command help]'
                 ret=0 ;;
             graph)
                 # no subcommand here
-                _arguments '1:: :' \
+                _arguments '*:' \
                     '-format=[render graph to specified format]:image format:(png svg pdf)' \
                     '-layout=[create a more vertical or more horizontal graph layout]:layout:(horizontal vertical)' \
                     '-output=[specify output filename, default is to open result in viewer]:_files'
@@ -127,23 +131,90 @@ local help='help[integrated command help]'
                     "run[run aptly tasks]"
                 ret=0 ;;
         esac
-    }
+}
 
 # complete parameters
 (( $+functions[_aptly-param] )) ||
     _aptly-param() {
         local cmd=$1 subcmd=$2
-        _values "foo" "foo"
-        _arguments "--blabla"
+
+        local config=$opt_args[-config]
+        [[ -n $config ]] && config="-config=$config"
+
         ret=0
-        case "$cmd $subcmd" in
-            "mirror create")
-                _arguments '2:: :' '-f[flup]'
+        case $cmd in
+            mirror)
+                # retrieve list of mirrors
+                local mirrors=($(aptly $config mirror list -raw=true 2>/dev/null))
+                if [[ ${#mirrors} -gt 0 ]]; then
+                    mirrors="($mirrors)"
+                else
+                    # a single space causes just the help text to be shown
+                    mirrors=" "
+                fi
+
+                case $subcmd in
+                    create)
+                        _arguments \
+                            "-filter=[filter packages in mirror]:aptly package query:" \
+                            "-filter-with-deps=[when filtering, include dependencies of matching packages as well]:$bool" \
+                            "-force-architecture=[(only with architecture list) skip check that requested architectures are listed in Release file]:$bool" \
+                            "-force-components=[(only with component list) skip check that requested components are listed in Release file]:$bool" \
+                            "-ignore-signatures=[disable verification of Release file signatures]:$bool" \
+                            $keyring \
+                            "-with-sources=[download source packages in addition to binary packages]:$bool" \
+                            "-with-udebs=[download .udeb packages (Debian installer support)]:$bool" \
+                            "(-)2:mirror name: " ":archive url:_urls" ":distribution:($dists)" ":components:_values -s ' ' components $components"
+                        ;;
+                    list)
+                        _arguments '2:: :' \
+                            "-raw=[display list in machine-readable format]:$bool"
+                        ;;
+                    show)
+                        _arguments \
+                            "-with-packages=[show detailed list of packages and versions stored in the mirror]:$bool" \
+                            "(-)2:mirror name:$mirrors"
+                        ;;
+                    drop)
+                        _arguments \
+                            "-force=[force mirror deletion even if used by snapshots]:$bool" \
+                            "(-)2:mirror name:$mirrors"
+                        ;;
+                    update)
+                        _arguments \
+                            "-download-limit=[limit download speed (kB/s)]:kB/s: " \
+                            "-force=[force update mirror even if it is locked by another process]:$bool" \
+                            "-ignore-checksums=[ignore checksum mismatches while downloading package files and metadata]:$bool" \
+                            "-ignore-signatures=[disable verification of Release file signatures]:$bool" \
+                            $keyring \
+                            "-max-tries=[max download tries till process fails with download error]:number: " \
+                            "-skip-existing-packages=[do not check file existence for packages listed in the internal database of the mirror]:$bool" \
+                            "(-)2:mirror name:$mirrors"
+                        ;;
+                    rename)
+                        _arguments \
+                            "2:old name:$mirrors" ":new name: "
+                        ;;
+                    edit)
+                        _arguments \
+                            "-filter=[filter packages in mirror]:aptly package query: " \
+                            "-filter-with-deps=[when filtering, include dependencies of matching packages as well]:$bool" \
+                            "-with-sources=[download source packages in addition to binary packages]:$bool" \
+                            "-with-udebs=[download .udeb packages (Debian installer support)]:$bool" \
+                            "(-)2:mirror name:$mirrors"
+                        ;;
+                    search)
+                        _arguments \
+                            "-format=[custom format for result printing]:aptly package display format: " \
+                            "-with-deps=[include dependencies into search results]:$bool" \
+                            "(-)2:mirror name:$mirrors" ":aptly package query: "
+                        ;;
+                esac
                 ;;
-            *)
-                ;;
+
+
         esac
-    }
+}
 
 # main completion
 _arguments -C \
@@ -158,17 +229,17 @@ _arguments -C \
     "-gpg-provider=[PGP implementation]:gpg provider:((gpg\:'external gpg' internal\:'Go internal implementation'))" \
     '1: :->cmds' \
     '2: :->subcmd' \
-    '3: :->arg' \
     '*:: :->args' && ret=0
+#'3: :->arg' \
 
-cmd=$line[1]
+    cmd=$line[1]
 subcmd=$line[2]
 
 
 case $state in
     cmds)
         _aptly-cmd
-        _values -w 'aptly help' $help
+        #_values -w 'aptly help' $help
         ;;
     subcmd)
         case $cmd in
@@ -178,28 +249,29 @@ case $state in
             *)
                 _aptly-subcmd $cmd
                 #_values -w 'aptly help' $help
-                _arguments '2:: :((help\:integrated\ command\ help))'
+                #_arguments '2:: :((help\:integrated\ command\ help))'
                 ;;
         esac
         ;;
-    arg)
-        if [[ $cmd == help ]]; then
-            _aptly-subcmd $subcmd
-        elif [[ $subcmd == help ]]; then
-            _aptly-subcmd $cmd
-        else
-            _aptly-param $cmd $subcmd
-            _values -w 'aptly help' $help
-        fi
-        ;;
+    #arg)
+        #if [[ $cmd == help ]]; then
+        #_aptly-subcmd $subcmd
+        #elif [[ $subcmd == help ]]; then
+        #_aptly-subcmd $cmd
+        #else
+        #_aptly-param $cmd $subcmd
+        #_arguments '3:: :((help\:integrated\ command\ help))'
+        ##_values -w 'aptly help' $help
+        #fi
+        #;;
     args)
         # help anywhere in line?
-        if [[ ${line[(i)help]} -le ${#line} ]]; then
-            # we are done, no parameters possible
-        else
-            _aptly-param $cmd $subcmd
-            _values -w 'aptly help' $help
-        fi
+        #if [[ ${line[(i)help]} -le ${#line} ]]; then
+        ## we are done, no parameters possible
+        #else
+        _aptly-param $cmd $subcmd
+        #_values -w 'aptly help' $help
+        #fi
         ret=0
         ;;
 esac
