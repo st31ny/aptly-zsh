@@ -11,19 +11,16 @@
 
 # see https://man.cx/aptly
 
-local curcontext="$curcontext" state line cmd subcmd do_help=0 ret=1
+local curcontext="$curcontext" state line cmd subcmd ret=1
 
 local arch_list="amd64 arm64 armel armhf i386 mips mipsel mips64el ppc64el s390x"
 local bool='bool:(true false)'
 
 local help='help[integrated command help]'
-local subhelp="$help"
-local paramhelp="$help"
 
 # complete command
 (( $+functions[_aptly-cmd] )) ||
     _aptly-cmd() {
-        local help=$1
         _values "aptly command category" \
             "mirror[manage, update mirrors of remote repositories]" \
             "repo[manage local package repositories, add, remove, move, copy packages]" \
@@ -35,8 +32,7 @@ local paramhelp="$help"
             "serve[quickly serve published repositories via HTTP]" \
             "config[configuration management]" \
             "graph[generate dependency graph]" \
-            "api[REST API service]" \
-            $help
+            "api[REST API service]"
         ret=0
     }
 
@@ -44,7 +40,6 @@ local paramhelp="$help"
 (( $+functions[_aptly-subcmd] )) ||
     _aptly-subcmd() {
         local cmd=$1
-        local subhelp=$2
         case $cmd in
             mirror)
                 _values "mirror commands" \
@@ -55,8 +50,7 @@ local paramhelp="$help"
                     "update[update a mirror]" \
                     "rename[change name of a mirror]" \
                     "edit[change settings of a mirror]" \
-                    "search[search mirror for packages matching query]" \
-                    $subhelp
+                    "search[search mirror for packages matching query]"
                 ret=0 ;;
             repo)
                 _values "repo commands" \
@@ -72,8 +66,7 @@ local paramhelp="$help"
                     "show[show details about local repository]" \
                     "rename[renames local repository]" \
                     "search[search repo for packages matching query]" \
-                    "include[add packages to local repositories based on .changes files]" \
-                    $subhelp
+                    "include[add packages to local repositories based on .changes files]"
                 ret=0 ;;
             snapshot)
                 _values "snapshot commands" \
@@ -87,8 +80,7 @@ local paramhelp="$help"
                     "drop[delete snapshot]" \
                     "rename[rename snapshot]" \
                     "search[search snapshot for packages matching query]" \
-                    "filter[filter packages in snapshot producing another snapshot]" \
-                    $subhelp
+                    "filter[filter packages in snapshot producing another snapshot]"
                 ret=0 ;;
             publish)
                 _values "publish commands" \
@@ -98,43 +90,41 @@ local paramhelp="$help"
                     "snapshot[publish snapshot]" \
                     "switch[update published repository by switching to new snapshot]" \
                     "update[update published local repository]" \
-                    "show[shows details of published repository]" \
-                    $subhelp
+                    "show[shows details of published repository]"
                 ret=0 ;;
             package)
                 _values "package commands" \
                     "search[search for packages matching query]" \
-                    "show[show details about packages matching query]" \
-                    $subhelp
+                    "show[show details about packages matching query]"
                 ret=0 ;;
             db)
                 _values "db commands" \
                     "cleanup[cleanup db and package pool]" \
-                    "recover[recover db after crash]" \
-                    $subhelp
+                    "recover[recover db after crash]"
                 ret=0 ;;
             serve)
-                _values "serve commands" \
-                    $subhelp
+                # no subcommand here
+                _arguments '1:: :' \
+                    '-listen=[host:port for HTTP listening]:host\:port:()'
                 ret=0 ;;
             api)
                 _values "api commands" \
-                    "serve[start api http service]" \
-                    $subhelp
+                    "serve[start api http service]"
                 ret=0 ;;
             graph)
-                _values "graph commands" \
-                    $subhelp
+                # no subcommand here
+                _arguments '1:: :' \
+                    '-format=[render graph to specified format]:image format:(png svg pdf)' \
+                    '-layout=[create a more vertical or more horizontal graph layout]:layout:(horizontal vertical)' \
+                    '-output=[specify output filename, default is to open result in viewer]:_files'
                 ret=0 ;;
             config)
                 _values "config commands" \
-                    "show[show current aptly config]" \
-                    $subhelp
+                    "show[show current aptly config]"
                 ret=0 ;;
             task)
                 _values "task commands" \
-                    "run[run aptly tasks]" \
-                    $subhelp
+                    "run[run aptly tasks]"
                 ret=0 ;;
         esac
     }
@@ -143,9 +133,16 @@ local paramhelp="$help"
 (( $+functions[_aptly-param] )) ||
     _aptly-param() {
         local cmd=$1 subcmd=$2
-        local paramhelp=$3
-        _values "param help" $paramhelp
+        _values "foo" "foo"
+        _arguments "--blabla"
         ret=0
+        case "$cmd $subcmd" in
+            "mirror create")
+                _arguments '2:: :' '-f[flup]'
+                ;;
+            *)
+                ;;
+        esac
     }
 
 # main completion
@@ -167,9 +164,11 @@ _arguments -C \
 cmd=$line[1]
 subcmd=$line[2]
 
+
 case $state in
     cmds)
-        _aptly-cmd $help
+        _aptly-cmd
+        _values -w 'aptly help' $help
         ;;
     subcmd)
         case $cmd in
@@ -177,7 +176,9 @@ case $state in
                 _aptly-cmd
                 ;;
             *)
-                _aptly-subcmd $cmd $subhelp
+                _aptly-subcmd $cmd
+                #_values -w 'aptly help' $help
+                _arguments '2:: :((help\:integrated\ command\ help))'
                 ;;
         esac
         ;;
@@ -187,7 +188,8 @@ case $state in
         elif [[ $subcmd == help ]]; then
             _aptly-subcmd $cmd
         else
-            _aptly-param $cmd $subcmd $paramhelp
+            _aptly-param $cmd $subcmd
+            _values -w 'aptly help' $help
         fi
         ;;
     args)
@@ -195,7 +197,8 @@ case $state in
         if [[ ${line[(i)help]} -le ${#line} ]]; then
             # we are done, no parameters possible
         else
-            _aptly-param $cmd $subcmd $paramhelp
+            _aptly-param $cmd $subcmd
+            _values -w 'aptly help' $help
         fi
         ret=0
         ;;
