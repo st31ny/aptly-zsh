@@ -17,7 +17,9 @@ local arch_list=(amd64 arm64 armel armhf i386 mips mipsel mips64el ppc64el s390x
 local bool='bool:(true false)'
 local dists=({wheezy,jessie,stretch}{,-updates,-backports,-backports-sloopy} buster sid experimental)
 local components=(main contrib non-free)
-
+local aptly_query="aptly package query: "
+local aptly_format="aptly package display format: "
+local aptly_uploaders="-uploaders-file=[uploaders.json to be used when including .changes into this repository]:uploaders file:_files -g '*.json'"
 local keyring="*-keyring=[gpg keyring to use when verifying Release file (could be specified multiple times)]:keyring file:_files -g '*.gpg'"
 
 local help='help[integrated command help]'
@@ -146,17 +148,13 @@ local help='help[integrated command help]'
             mirror)
                 # retrieve list of mirrors
                 local mirrors=($(aptly $config mirror list -raw=true 2>/dev/null))
-                if [[ ${#mirrors} -gt 0 ]]; then
-                    mirrors="($mirrors)"
-                else
-                    # a single space causes just the help text to be shown
-                    mirrors=" "
-                fi
+                # a single space causes just the help text to be shown
+                [[ -z ${#mirros} ]] && mirrors=" " || mirrors="($mirrors)"
 
                 case $subcmd in
                     create)
                         _arguments \
-                            "-filter=[filter packages in mirror]:aptly package query:" \
+                            "-filter=[filter packages in mirror]:$aptly_query" \
                             "-filter-with-deps=[when filtering, include dependencies of matching packages as well]:$bool" \
                             "-force-architecture=[(only with architecture list) skip check that requested architectures are listed in Release file]:$bool" \
                             "-force-components=[(only with component list) skip check that requested components are listed in Release file]:$bool" \
@@ -167,7 +165,7 @@ local help='help[integrated command help]'
                             "(-)2:mirror name: " ":archive url:_urls" ":distribution:($dists)" ":components:_values -s ' ' components $components"
                         ;;
                     list)
-                        _arguments '2:: :' \
+                        _arguments '1:: :' \
                             "-raw=[display list in machine-readable format]:$bool"
                         ;;
                     show)
@@ -193,11 +191,11 @@ local help='help[integrated command help]'
                         ;;
                     rename)
                         _arguments \
-                            "2:old name:$mirrors" ":new name: "
+                            "2:old mirror name:$mirrors" ":new mirror name: "
                         ;;
                     edit)
                         _arguments \
-                            "-filter=[filter packages in mirror]:aptly package query: " \
+                            "-filter=[filter packages in mirror]:$aptly_query" \
                             "-filter-with-deps=[when filtering, include dependencies of matching packages as well]:$bool" \
                             "-with-sources=[download source packages in addition to binary packages]:$bool" \
                             "-with-udebs=[download .udeb packages (Debian installer support)]:$bool" \
@@ -205,14 +203,108 @@ local help='help[integrated command help]'
                         ;;
                     search)
                         _arguments \
-                            "-format=[custom format for result printing]:aptly package display format: " \
+                            "-format=[custom format for result printing]:$aptly_format" \
                             "-with-deps=[include dependencies into search results]:$bool" \
-                            "(-)2:mirror name:$mirrors" ":aptly package query: "
+                            "(-)2:mirror name:$mirrors" ":$aptly_query"
                         ;;
                 esac
                 ;;
 
+            repo)
+                # retrieve repo & snapshot list
+                local repos=($(aptly $config repo list -raw=true 2>/dev/null))
+                [[ -z ${#repos} ]] && repos=" " || repos="($repos)"
 
+                local create_edit=("-comment=[any text that would be used to described local repository]:comment: "
+                            "-component=[default component when publishing]:component:($components)"
+                            "-distribution=[default distribution when publishing]:distribution:($dists)"
+                            $aptly_uploaders
+                            )
+
+                case $subcmd in
+                    add)
+                        _arguments \
+                            "-force-replace=[when adding package that conflicts with existing package, remove existing package]:$bool" \
+                            "-remove-files=[remove files that have been imported successfully into repository]:$bool" \
+                            "(-)2:repo name:$repos" "*:package files:_files -g '*.{udeb,deb,dsc}'"
+                        ;;
+                    copy)
+                        _arguments \
+                            "-dry-run=[don’t copy, just show what would be copied]:$bool" \
+                            "-with-deps=[follow dependencies when processing package−spec]:$$bool" \
+                            "(-)2:src repo name:$repos" ":dest repo name:$repos" "*:$aptly_query"
+                        ;;
+                    create)
+                        local snapshots=($(aptly $config snapshot list -raw=true 2>/dev/null))
+                        [[ -z ${#snapshots} ]] && snapshots=" " || snapshots="($snapshots)"
+
+                        _arguments \
+                            ${create_edit[@]} \
+                            "(-)2:repo name: " \
+                            "3:::('from')" "4:::('snapshot')" "5::snapshot:$snapshots"
+                        ;;
+                    drop)
+                        _arguments \
+                            "-force=[force local repo deletion even if used by snapshots]:$bool" \
+                            "(-)2:repo name:$repos"
+                        ;;
+                    edit)
+                        _arguments \
+                            ${create_edit[@]} \
+                            "(-)2:repo name:$repos"
+                        ;;
+                    import)
+                        local mirrors=($(aptly $config mirror list -raw=true 2>/dev/null))
+                        [[ -z ${#mirros} ]] && mirrors=" " || mirrors="($mirrors)"
+
+                        _arguments \
+                            "-dry-run=[don’t import, just show what would be imported]:$bool" \
+                            "-with-deps=[follow dependencies when processing package−spec]:$bool" \
+                            "(-)2:src mirror name:$mirrors" ":dest repo name:$repos" ":$aptly_query"
+                        ;;
+                    list)
+                        _arguments '1:: :' \
+                            "-raw=[display list in machine−readable format]:$bool"
+                        ;;
+                    move)
+                        _arguments \
+                            "-dry-run=[don’t move, just show what would be moved]:$bool" \
+                            "-with-deps=[follow dependencies when processing package−spec]:$bool" \
+                            "(-)2:srv repo name:$repos" ":dest repo name:$repos" ":$aptly_query"
+                        ;;
+                    remove)
+                        _arguments \
+                            "-dry-run=[don’t remove, just show what would be removed]:$bool" \
+                            "(-)2:repo name:$repos" ":$aptly_query"
+                        ;;
+                    show)
+                        _arguments \
+                            "-with-packages=[show list of packages]:$bool" \
+                            "(-)2:repo name:$repos"
+                        ;;
+                    rename)
+                        _arguments \
+                            "2:old repo name:$repos" ":new repo name: "
+                        ;;
+                    search)
+                        _arguments \
+                            "-format=[custom format for result printing]:$aptly_format" \
+                            "-with-deps=[include dependencies into search results]:$bool" \
+                            "(-)2:repo name:$repos" ":$aptly_query"
+                        ;;
+                    include)
+                        _arguments '1:: :' \
+                            "-accept-unsigned=[accept unsigned .changes files]:$bool" \
+                            "-force-replace=[when adding package that conflicts with existing package, remove existing package]:$bool" \
+                            "-ignore-signatures=[disable verification of .changes file signature]:$bool" \
+                            $keyring \
+                            "-no-remove-files=[don’t remove files that have been imported successfully into repository]:$bool" \
+                            "-repo=[which repo should files go to, defaults to Distribution field of .changes file]:repo name:$repos" \
+                            $aptly_uploaders \
+                            "(-)*:changes files/directories:_files -g '*.changes'"
+                        ;;
+                esac
+                ;;
         esac
 }
 
@@ -232,7 +324,7 @@ _arguments -C \
     '*:: :->args' && ret=0
 #'3: :->arg' \
 
-    cmd=$line[1]
+cmd=$line[1]
 subcmd=$line[2]
 
 
