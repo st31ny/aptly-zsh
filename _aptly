@@ -162,7 +162,7 @@ local help='help[integrated command help]'
                             $keyring \
                             "-with-sources=[download source packages in addition to binary packages]:$bool" \
                             "-with-udebs=[download .udeb packages (Debian installer support)]:$bool" \
-                            "(-)2:mirror name: " ":archive url:_urls" ":distribution:($dists)" ":components:_values -s ' ' components $components"
+                            "(-)2:new mirror name: " ":archive url:_urls" ":distribution:($dists)" ":components:_values -s ' ' components $components"
                         ;;
                     list)
                         _arguments '1:: :' \
@@ -211,7 +211,7 @@ local help='help[integrated command help]'
                 ;;
 
             repo)
-                # retrieve repo & snapshot list
+                # retrieve repo list
                 local repos=($(aptly $config repo list -raw=true 2>/dev/null))
                 [[ -z ${#repos} ]] && repos=" " || repos="($repos)"
 
@@ -240,7 +240,7 @@ local help='help[integrated command help]'
 
                         _arguments \
                             ${create_edit[@]} \
-                            "(-)2:repo name: " \
+                            "(-)2:new repo name: " \
                             "3:::('from')" "4:::('snapshot')" "5::snapshot:$snapshots"
                         ;;
                     drop)
@@ -305,6 +305,98 @@ local help='help[integrated command help]'
                         ;;
                 esac
                 ;;
+            snapshot)
+                local snapshots=($(aptly $config snapshot list -raw=true 2>/dev/null))
+                [[ -z ${#snapshots} ]] && snapshots=" " || snapshots="($snapshots)"
+
+                case $subcmd in
+                    create)
+                        local mirrors=($(aptly $config mirror list -raw=true 2>/dev/null))
+                        [[ -z ${#mirros} ]] && mirrors=" " || mirrors="($mirrors)"
+                        local repos=($(aptly $config repo list -raw=true 2>/dev/null))
+                        [[ -z ${#repos} ]] && repos=" " || repos="($repos)"
+
+                        _arguments -C \
+                            '(-)2:new snapshot name: ' \
+                            '3: :->src1' \
+                            '4:: :->src2' '5:: :->src3'
+
+                        case $state in
+                            src1)
+                                _values 'snapshot src' 'from' 'empty' ;;
+                            src2)
+                                if [[ $line[3] == from ]]; then
+                                    _values 'snapshot src' 'mirror' 'repo'
+                                fi
+                                ;;
+                            src3)
+                                if [[ $line[3] == from ]]; then
+                                    case $line[4] in
+                                        mirror)
+                                            _arguments "5:mirror name:$mirrors" ;;
+                                        repo)
+                                            _arguments "5:repo name:$repos" ;;
+                                    esac
+                                fi
+                                ;;
+                        esac
+                        ;;
+                    list)
+                        _arguments '1:: :' \
+                            "-raw=[display list in machine−readable format]:$bool" \
+                            "-sort=[display list in ’name’ or creation ’time’ order]:sort order:((name\:'alphabetical order' time\:'chronological order'))"
+                        ;;
+                    show)
+                        _arguments \
+                            "-with-packages=[show list of packages]:$bool" \
+                            "(-)2:snapshot name:$snapshots"
+                        ;;
+                    verify)
+                        _arguments '1:: :' \
+                            "(-)2:snapshot name:$snapshots" "*::more snapshots:$snapshots"
+                        ;;
+                    pull)
+                        _arguments \
+                            "-all-matches=[pull all the packages that satisfy the dependency version requirements]:$bool" \
+                            "-dry-run=[don’t create destination snapshot, just show what would be pulled]:$bool" \
+                            "-no-deps=[don’t process dependencies, just pull listed packages]:$bool" \
+                            "-no-remove=[don’t remove other package versions when pulling package]:$bool" \
+                            "(-)2:to snapshot name:$snapshots" "3:src snapshot name:$snapshots" "4:new dest snapshot name: " \
+                            "*:$aptly_query"
+                        ;;
+                    diff)
+                        _arguments \
+                            "-only-matching=[display diff only for matching packages (don’t display missing packages)]:$bool" \
+                            "(-)2:snapshot name a:$snapshots" "3:snapshot name b:$snapshots"
+                        ;;
+                    merge)
+                        _arguments \
+                            "-latest=[use only the latest version of each package]:$bool" \
+                            "-no-remove=[don’t remove duplicate arch/name packages]:$bool" \
+                            "(-)2:new dest snapshot name: " "*:source snapshot name(s):$snapshots"
+                        ;;
+                    drop)
+                        _arguments \
+                            "-force=[remove snapshot even if it was used as source for other snapshots]:$bool" \
+                            "(-)2:snapshot name:$snapshots"
+                        ;;
+                    rename)
+                        _arguments '1:: :' \
+                            "2:old snapshot name:$snapshots" "3:new snapshot name: "
+                        ;;
+                    search)
+                        _arguments \
+                            "-format=[custom format for result printing]:$aptly_format" \
+                            "-with-deps=[include dependencies into search results]:$bool" \
+                            "(-)2:snapshot name:$snapshots" ":$aptly_query"
+                        ;;
+                    filter)
+                        _arguments \
+                            "-with-deps=[include dependent packages as well]:$bool" \
+                            "(-)2:src snapshot name:$snapshots" "3:new dest snapshot name: " "*:$aptly_query"
+                        ;;
+                esac
+                ;;
         esac
 }
 
@@ -319,7 +411,7 @@ _arguments -C \
     "-dep-follow-suggests=[when processing dependencies, follow Suggests]:$bool" \
     "-dep-verbose-resolve=[when processing dependencies, print detailed logs]:$bool" \
     "-gpg-provider=[PGP implementation]:gpg provider:((gpg\:'external gpg' internal\:'Go internal implementation'))" \
-    '1: :->cmds' \
+    '(-)1: :->cmds' \
     '2: :->subcmd' \
     '*:: :->args' && ret=0
 #'3: :->arg' \
