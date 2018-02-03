@@ -11,27 +11,19 @@
 
 # see https://man.cx/aptly
 
-local curcontext="$curcontext" state line ret=1
+local curcontext="$curcontext" state line cmd subcmd do_help=0 ret=1
 
 local arch_list="amd64 arm64 armel armhf i386 mips mipsel mips64el ppc64el s390x"
 local bool='bool:(true false)'
 
-_arguments -C \
-    "-architectures=[list of architectures to consider (comma−separated), default to all available]:architectures:_values -s , architectures $arch_list" \
-    "-config=[location of configuration file]:file:_files -g '*.conf'" \
-    "-db-open-attempts=[number of attempts to open DB if it’s locked by other instance]:number:()" \
-    "-dep-follow-all-variants=[when processing dependencies, follow a & b if dependency is ’a|b’]:$bool" \
-    "-dep-follow-recommends=[when processing dependencies, follow Recommends]:$bool" \
-    "-dep-follow-source=[when processing dependencies, follow from binary to Source packages]:$bool" \
-    "-dep-follow-suggests=[when processing dependencies, follow Suggests]:$bool" \
-    "-dep-verbose-resolve=[when processing dependencies, print detailed logs]:$bool" \
-    "-gpg-provider=[PGP implementation]:gpg provider:((gpg\:'external gpg' internal\:'Go internal implementation'))" \
-    '1: :->cmds' \
-    '2: :->subcmd' \
-    '*:: :->args' && ret=0
+local help='help[integrated command help]'
+local subhelp="$help"
+local paramhelp="$help"
 
-case $state in
-    cmds)
+# complete command
+(( $+functions[_aptly-cmd] )) ||
+    _aptly-cmd() {
+        local help=$1
         _values "aptly command category" \
             "mirror[manage, update mirrors of remote repositories]" \
             "repo[manage local package repositories, add, remove, move, copy packages]" \
@@ -44,10 +36,16 @@ case $state in
             "config[configuration management]" \
             "graph[generate dependency graph]" \
             "api[REST API service]" \
-            "help[integrated command help]"
-        ret=0 ;;
-    subcmd)
-        case $line[1] in
+            $help
+        ret=0
+    }
+
+# complete subcommand
+(( $+functions[_aptly-subcmd] )) ||
+    _aptly-subcmd() {
+        local cmd=$1
+        local subhelp=$2
+        case $cmd in
             mirror)
                 _values "mirror commands" \
                     "create[create new mirror of remote repository]" \
@@ -57,7 +55,8 @@ case $state in
                     "update[update a mirror]" \
                     "rename[change name of a mirror]" \
                     "edit[change settings of a mirror]" \
-                    "search[search mirror for packages matching query]"
+                    "search[search mirror for packages matching query]" \
+                    $subhelp
                 ret=0 ;;
             repo)
                 _values "repo commands" \
@@ -73,7 +72,8 @@ case $state in
                     "show[show details about local repository]" \
                     "rename[renames local repository]" \
                     "search[search repo for packages matching query]" \
-                    "include[add packages to local repositories based on .changes files]"
+                    "include[add packages to local repositories based on .changes files]" \
+                    $subhelp
                 ret=0 ;;
             snapshot)
                 _values "snapshot commands" \
@@ -87,7 +87,8 @@ case $state in
                     "drop[delete snapshot]" \
                     "rename[rename snapshot]" \
                     "search[search snapshot for packages matching query]" \
-                    "filter[filter packages in snapshot producing another snapshot]"
+                    "filter[filter packages in snapshot producing another snapshot]" \
+                    $subhelp
                 ret=0 ;;
             publish)
                 _values "publish commands" \
@@ -97,39 +98,106 @@ case $state in
                     "snapshot[publish snapshot]" \
                     "switch[update published repository by switching to new snapshot]" \
                     "update[update published local repository]" \
-                    "show[shows details of published repository]"
+                    "show[shows details of published repository]" \
+                    $subhelp
                 ret=0 ;;
             package)
                 _values "package commands" \
                     "search[search for packages matching query]" \
-                    "show[show details about packages matching query]"
+                    "show[show details about packages matching query]" \
+                    $subhelp
                 ret=0 ;;
             db)
                 _values "db commands" \
                     "cleanup[cleanup db and package pool]" \
-                    "recover[recover db after crash]"
+                    "recover[recover db after crash]" \
+                    $subhelp
                 ret=0 ;;
             serve)
+                _values "serve commands" \
+                    $subhelp
                 ret=0 ;;
             api)
                 _values "api commands" \
-                    "serve[start api http service]"
+                    "serve[start api http service]" \
+                    $subhelp
                 ret=0 ;;
             graph)
+                _values "graph commands" \
+                    $subhelp
                 ret=0 ;;
             config)
                 _values "config commands" \
-                    "show[show current aptly config]"
+                    "show[show current aptly config]" \
+                    $subhelp
                 ret=0 ;;
             task)
                 _values "task commands" \
-                    "run[run aptly tasks]"
+                    "run[run aptly tasks]" \
+                    $subhelp
                 ret=0 ;;
         esac
+    }
+
+# complete parameters
+(( $+functions[_aptly-param] )) ||
+    _aptly-param() {
+        local cmd=$1 subcmd=$2
+        local paramhelp=$3
+        _values "param help" $paramhelp
+        ret=0
+    }
+
+# main completion
+_arguments -C \
+    "-architectures=[list of architectures to consider (comma−separated), default to all available]:architectures:_values -s , architectures $arch_list" \
+    "-config=[location of configuration file]:file:_files -g '*.conf'" \
+    "-db-open-attempts=[number of attempts to open DB if it’s locked by other instance]:number:()" \
+    "-dep-follow-all-variants=[when processing dependencies, follow a & b if dependency is ’a|b’]:$bool" \
+    "-dep-follow-recommends=[when processing dependencies, follow Recommends]:$bool" \
+    "-dep-follow-source=[when processing dependencies, follow from binary to Source packages]:$bool" \
+    "-dep-follow-suggests=[when processing dependencies, follow Suggests]:$bool" \
+    "-dep-verbose-resolve=[when processing dependencies, print detailed logs]:$bool" \
+    "-gpg-provider=[PGP implementation]:gpg provider:((gpg\:'external gpg' internal\:'Go internal implementation'))" \
+    '1: :->cmds' \
+    '2: :->subcmd' \
+    '3: :->arg' \
+    '*:: :->args' && ret=0
+
+cmd=$line[1]
+subcmd=$line[2]
+
+case $state in
+    cmds)
+        _aptly-cmd $help
+        ;;
+    subcmd)
+        case $cmd in
+            help)
+                _aptly-cmd
+                ;;
+            *)
+                _aptly-subcmd $cmd $subhelp
+                ;;
+        esac
+        ;;
+    arg)
+        if [[ $cmd == help ]]; then
+            _aptly-subcmd $subcmd
+        elif [[ $subcmd == help ]]; then
+            _aptly-subcmd $cmd
+        else
+            _aptly-param $cmd $subcmd $paramhelp
+        fi
         ;;
     args)
-        case $line[1] in
-        esac
+        # help anywhere in line?
+        if [[ ${line[(i)help]} -le ${#line} ]]; then
+            # we are done, no parameters possible
+        else
+            _aptly-param $cmd $subcmd $paramhelp
+        fi
+        ret=0
         ;;
 esac
 
