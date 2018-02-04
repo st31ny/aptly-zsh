@@ -574,7 +574,7 @@ subcmd=$line[2]
 case $state in
     cmds)
         _aptly-cmd
-        _values -w 'aptly help' 'help[integrated command help]'
+        _arguments '(-)1:: :((help\:integrated\ command\ help))'
         ;;
     subcmd)
         case $cmd in
