@@ -111,7 +111,7 @@ local help='help[integrated command help]'
             serve)
                 # no subcommand here
                 _arguments '1:: :' \
-                    '-listen=[host:port for HTTP listening]:host\:port:()'
+                    '-listen=[host:port for HTTP listening]:host\:port: '
                 ret=0 ;;
             api)
                 _values "api commands" \
@@ -122,7 +122,7 @@ local help='help[integrated command help]'
                 _arguments '*:' \
                     '-format=[render graph to specified format]:image format:(png svg pdf)' \
                     '-layout=[create a more vertical or more horizontal graph layout]:layout:(horizontal vertical)' \
-                    '-output=[specify output filename, default is to open result in viewer]:_files'
+                    '-output=[specify output filename, default is to open result in viewer]:output file:_files'
                 ret=0 ;;
             config)
                 _values "config commands" \
@@ -493,6 +493,63 @@ local help='help[integrated command help]'
                         _arguments '1:: :' \
                             "(-)2:distribution:$publish_dists_uniq" "3::$endpoint_prefix:$publish_prefixes_uniq"
                         ;;
+                esac
+                ;;
+            package)
+                case $subcmd in
+                    search)
+                        _arguments \
+                            "-format=[custom format for result printing]:$aptly_format" \
+                            "(-)2:$aptly_query"
+                        ;;
+                    show)
+                        _arguments \
+                            "-with-files=[display information about files from package pool]:$bool" \
+                            "-with-references=[display information about mirrors, snapshots and local repos referencing this package]:$bool" \
+                            "(-)2:$aptly_query"
+                        ;;
+                esac
+                ;;
+            db)
+                case $subcmd in
+                    cleanup)
+                        _arguments '1:: :' \
+                            "-dry-run=[don’t delete anything]:$bool" \
+                            "-verbose=[be verbose when loading objects/removing them]:$bool"
+                        ;;
+                    recover)
+                        # nothing to complete...
+                        ;;
+                esac
+                ;;
+            serve)
+                # completed in _aptly-subcmd
+                ;;
+            api)
+                case $subcmd in
+                    serve)
+                        _arguments '1:: :' \
+                            "-listen=[host:port for HTTP listening or unix://path to listen on a Unix domain socket]:host\:port/unix\://path: " \
+                            "-no-lock=[don’t lock the database]:$bool"
+                        ;;
+                esac
+                ;;
+            graph)
+                # completed in _aptly-subcmd
+                ;;
+            config)
+                case $subcmd in
+                    show)
+                        # nothing to do
+                        ;;
+                esac
+                ;;
+            task)
+                case $subcmd in
+                    run)
+                        _arguments '1:: :' \
+                            "(2)-filename=[specifies the filename that contains the commands to run]:filename:_files" \
+                            "(-filename)*::comma-separated command list: "
                 esac
                 ;;
         esac
