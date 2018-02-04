@@ -296,7 +296,7 @@ local keyring="*-keyring=[gpg keyring to use when verifying Release file (could 
                     remove)
                         _arguments \
                             "-dry-run=[don’t remove, just show what would be removed]:$bool" \
-                            "(-)2:repo name:$repos" ":$aptly_query"
+                            "(-)2:repo name:$repos" "*:$aptly_query"
                         ;;
                     show)
                         _arguments \
