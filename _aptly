@@ -22,8 +22,6 @@ local aptly_format="aptly package display format: "
 local aptly_uploaders="-uploaders-file=[uploaders.json to be used when including .changes into this repository]:uploaders file:_files -g '*.json'"
 local keyring="*-keyring=[gpg keyring to use when verifying Release file (could be specified multiple times)]:keyring file:_files -g '*.gpg'"
 
-local help='help[integrated command help]'
-
 # complete command
 (( $+functions[_aptly-cmd] )) ||
     _aptly-cmd() {
@@ -569,16 +567,14 @@ _arguments -C \
     '(-)1: :->cmds' \
     '2: :->subcmd' \
     '*:: :->args' && ret=0
-#'3: :->arg' \
 
 cmd=$line[1]
 subcmd=$line[2]
 
-
 case $state in
     cmds)
         _aptly-cmd
-        #_values -w 'aptly help' $help
+        _values -w 'aptly help' 'help[integrated command help]'
         ;;
     subcmd)
         case $cmd in
@@ -587,30 +583,26 @@ case $state in
                 ;;
             *)
                 _aptly-subcmd $cmd
-                #_values -w 'aptly help' $help
-                #_arguments '2:: :((help\:integrated\ command\ help))'
+                _arguments '(-)2:: :((help\:integrated\ command\ help))'
                 ;;
         esac
         ;;
-    #arg)
-        #if [[ $cmd == help ]]; then
-        #_aptly-subcmd $subcmd
-        #elif [[ $subcmd == help ]]; then
-        #_aptly-subcmd $cmd
-        #else
-        #_aptly-param $cmd $subcmd
-        #_arguments '3:: :((help\:integrated\ command\ help))'
-        ##_values -w 'aptly help' $help
-        #fi
-        #;;
+
     args)
         # help anywhere in line?
-        #if [[ ${line[(i)help]} -le ${#line} ]]; then
-        ## we are done, no parameters possible
-        #else
-        _aptly-param $cmd $subcmd
-        #_values -w 'aptly help' $help
-        #fi
+        if [[ ${line[(i)help]} -le ${#line} ]]; then
+            if [[ ${#line} -le 3 ]]; then
+                if [[ $line[1] == help ]]; then
+                    _aptly-subcmd $subcmd
+                elif [[ $line[2] == help ]]; then
+                    _aptly-subcmd $cmd
+                fi
+            fi
+        else
+            _aptly-param $cmd $subcmd
+            # this somehow destroys parameter completion, so disable it for now
+            #_arguments '(-)3:: :((help\:integrated\ command\ help))'
+        fi
         ret=0
         ;;
 esac
