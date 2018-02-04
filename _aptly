@@ -146,8 +146,8 @@ local keyring="*-keyring=[gpg keyring to use when verifying Release file (could 
             # retrieve list of mirrors
             local mirrors=($(aptly $config mirror list -raw=true 2>/dev/null))
             # a single space causes just the help text to be shown
-            [[ -z $mirros ]] && mirrors=" " || mirrors="($mirrors)"
-            echo $mirros
+            [[ -z $mirrors ]] && mirrors=" " || mirrors="($mirrors)"
+            echo $mirrors
         }
         # get lists of repos or ' ' if none
         get_repos() {
