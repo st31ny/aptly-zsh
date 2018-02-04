@@ -14,7 +14,7 @@
 local curcontext="$curcontext" state line cmd subcmd ret=1
 
 local arch_list=(amd64 arm64 armel armhf i386 mips mipsel mips64el ppc64el s390x)
-local bool='bool:(true false)'
+local bool="bool:{_wanted -V values expl 'bool' compadd true false}"
 local dists=({wheezy,jessie,stretch}{,-updates,-backports,-backports-sloopy} buster sid experimental)
 local components=(main contrib non-free)
 local aptly_query="aptly package query: "
