@@ -527,7 +527,7 @@ local keyring="*-keyring=[gpg keyring to use when verifying Release file (could 
                 case $subcmd in
                     serve)
                         _arguments '1:: :' \
-                            "-listen=[host:port for HTTP listening or unix://path to listen on a Unix domain socket]:host\:port/unix\://path: " \
+                            "-listen=[host:port for HTTP listening or unix://path to listen on a Unix domain socket]:host\:port or unix\://path: " \
                             "-no-lock=[don’t lock the database]:$bool"
                         ;;
                 esac
