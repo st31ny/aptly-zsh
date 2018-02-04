@@ -420,7 +420,7 @@ local keyring="*-keyring=[gpg keyring to use when verifying Release file (could 
                 # format of each item: <ep:prefix> <distribution>
                 local -a publish_prefixes
                 local -a publish_dists
-                for line in ${(@f)"$(aptly -config=/home/steiny/.aptly2.conf publish list -raw=true 2>/dev/null)"}
+                for line in ${(@f)"$(aptly $config publish list -raw=true 2>/dev/null)"}
                 {
                     publish_prefixes+=($line[(ws: :)1])
                     publish_dists+=($line[(ws: :)2])
