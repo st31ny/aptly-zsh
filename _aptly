@@ -143,13 +143,38 @@ local help='help[integrated command help]'
         local config=$opt_args[-config]
         [[ -n $config ]] && config="-config=$config"
 
+        # get list of mirrors, or ' ' if none
+        get_mirrors() {
+            # retrieve list of mirrors
+            local mirrors=($(aptly $config mirror list -raw=true 2>/dev/null))
+            # a single space causes just the help text to be shown
+            [[ -z $mirros ]] && mirrors=" " || mirrors="($mirrors)"
+            echo $mirros
+        }
+        # get lists of repos or ' ' if none
+        get_repos() {
+            # retrieve repo list
+            local repos=($(aptly $config repo list -raw=true 2>/dev/null))
+            [[ -z $repos ]] && repos=" " || repos="($repos)"
+            echo $repos
+        }
+        # get list of snapshots or ' ' if none
+        get_snapshots() {
+            local snapshots=($(aptly $config snapshot list -raw=true 2>/dev/null))
+            [[ -z $snapshots ]] && snapshots=" " || snapshots="($snapshots)"
+            echo $snapshots
+        }
+        # get list of gpg keys or ' ' if none
+        get_gpg_key_ids() {
+            local gpg_keys=($(gpg --quiet --batch  --keyid-format long --list-secret-keys --with-colons 2>/dev/null | grep '^sec' | cut -d ':' -f 5))
+            [[ -z $gpg_keys ]] && gpg_keys=" " || gpg_keys="($gpg_keys)"
+            echo $gpg_keys
+        }
+
         ret=0
         case $cmd in
             mirror)
-                # retrieve list of mirrors
-                local mirrors=($(aptly $config mirror list -raw=true 2>/dev/null))
-                # a single space causes just the help text to be shown
-                [[ -z ${#mirros} ]] && mirrors=" " || mirrors="($mirrors)"
+                local mirrors=$(get_mirrors)
 
                 case $subcmd in
                     create)
@@ -211,9 +236,9 @@ local help='help[integrated command help]'
                 ;;
 
             repo)
-                # retrieve repo list
-                local repos=($(aptly $config repo list -raw=true 2>/dev/null))
-                [[ -z ${#repos} ]] && repos=" " || repos="($repos)"
+
+
+                local repos=$(get_repos)
 
                 local create_edit=("-comment=[any text that would be used to described local repository]:comment: "
                             "-component=[default component when publishing]:component:($components)"
@@ -235,8 +260,7 @@ local help='help[integrated command help]'
                             "(-)2:src repo name:$repos" ":dest repo name:$repos" "*:$aptly_query"
                         ;;
                     create)
-                        local snapshots=($(aptly $config snapshot list -raw=true 2>/dev/null))
-                        [[ -z ${#snapshots} ]] && snapshots=" " || snapshots="($snapshots)"
+                        local snapshots=$(get_snapshots)
 
                         _arguments \
                             ${create_edit[@]} \
@@ -254,8 +278,7 @@ local help='help[integrated command help]'
                             "(-)2:repo name:$repos"
                         ;;
                     import)
-                        local mirrors=($(aptly $config mirror list -raw=true 2>/dev/null))
-                        [[ -z ${#mirros} ]] && mirrors=" " || mirrors="($mirrors)"
+                        local mirrors=$(get_mirrors)
 
                         _arguments \
                             "-dry-run=[don’t import, just show what would be imported]:$bool" \
@@ -306,15 +329,12 @@ local help='help[integrated command help]'
                 esac
                 ;;
             snapshot)
-                local snapshots=($(aptly $config snapshot list -raw=true 2>/dev/null))
-                [[ -z ${#snapshots} ]] && snapshots=" " || snapshots="($snapshots)"
+                local snapshots=$(get_snapshots)
 
                 case $subcmd in
                     create)
-                        local mirrors=($(aptly $config mirror list -raw=true 2>/dev/null))
-                        [[ -z ${#mirros} ]] && mirrors=" " || mirrors="($mirrors)"
-                        local repos=($(aptly $config repo list -raw=true 2>/dev/null))
-                        [[ -z ${#repos} ]] && repos=" " || repos="($repos)"
+                        local mirrors=$(get_mirrors)
+                        local repos=$(get_repos)
 
                         _arguments -C \
                             '(-)2:new snapshot name: ' \
@@ -394,6 +414,84 @@ local help='help[integrated command help]'
                         _arguments \
                             "-with-deps=[include dependent packages as well]:$bool" \
                             "(-)2:src snapshot name:$snapshots" "3:new dest snapshot name: " "*:$aptly_query"
+                        ;;
+                esac
+                ;;
+            publish)
+                # read lines of output into
+                # format of each item: <ep:prefix> <distribution>
+                local -a publish_prefixes
+                local -a publish_dists
+                for line in ${(@f)"$(aptly -config=/home/steiny/.aptly2.conf publish list -raw=true 2>/dev/null)"}
+                {
+                    publish_prefixes+=($line[(ws: :)1])
+                    publish_dists+=($line[(ws: :)2])
+                }
+                publish_prefixes_uniq=(${(@u)publish_prefixes})
+                publish_dists_uniq=(${(@u)publish_dists})
+                [[ -z $publish_prefixes_uniq ]] && publish_prefixes_uniq=" " || publish_prefixes_uniq="($publish_prefixes_uniq)"
+                [[ -z $publish_dists_uniq ]]    && publish_dists_uniq=" "    || publish_dists_uniq="($publish_dists_uniq)"
+
+                local gpg_keys=$(get_gpg_key_ids)
+
+                # common options for publishing
+                # TODO: is the keyring parameter correct?
+                local publish_update_options=(
+                            "-batch=[run GPG with detached tty]:$bool"
+                            "-force-overwrite=[overwrite files in package pool in case of mismatch]:$bool"
+                            "-gpg-key=[GPG key ID to use when signing the release]:gpg key id:$gpg_keys"
+                            "-keyring=[GPG keyring to use (instead of default)]:keyring file:_files -g '*.gpg'"
+                            "-passphrase=[GPG passhprase for the key (warning: could be insecure)]:passphrase: "
+                            "-passphrase-file=[GPG passhprase−file for the key (warning: could be insecure)]:passphrase file:_files"
+                            "-secret-keyring=[GPG secret keyring to use (instead of default)]:secret-keyring:_files"
+                            "-skip-contents=[don’t generate Contents indexes]:$bool"
+                            "-skip-signing=[don’t sign Release files with GPG]:$bool"
+                )
+                local components_options=(
+                            "-component=[component name to publish (for multi−component publishing, separate components with commas)]:components:_values -s , components $components"
+                )
+                local publish_options=(
+                            "-butautomaticupgrades=[set value for ButAutomaticUpgrades field]:$bool"
+                            "-distribution=[distribution name to publish]:distribution:($dists)"
+                            "-label=[label to publish]:label: "
+                            "-notautomatic=[set value for NotAutomatic field]:notautomatic: "
+                            "-origin=[origin name to publish]:origin: "
+                            ${components_options[@]}
+                )
+
+                local endpoint_prefix="[endpoint\:]prefix"
+
+                case $subcmd in
+                    repo)
+                        local repos=$(get_repos)
+                        _arguments \
+                            ${publish_options[@]} \
+                            ${publish_update_options[@]} \
+                            "(-)2:repo name:$repos" "3::$endpoint_prefix: "
+                        ;;
+                    snapshot)
+                        local snapshots=$(get_snapshots)
+                        _arguments '1:: :' \
+                            ${publish_options[@]} \
+                            ${publish_update_options[@]} \
+                            "(-)*:snapshot name:$snapshots" "3::$endpoint_prefix: "
+                        ;;
+                    switch)
+                        local snapshots=$(get_snapshots)
+                        _arguments \
+                            ${publish_update_options[@]} \
+                            ${components_options[@]} \
+                            "(-)2:distribution:$publish_dists_uniq" "3::$endpoint_prefix:$publish_prefixes_uniq" \
+                            "4:new snapshot name:$snapshots"
+                        ;;
+                    update)
+                        _arguments \
+                            ${publish_update_options[@]} \
+                            "(-)2:distribution:$publish_dists_uniq" "3::$endpoint_prefix:$publish_prefixes_uniq"
+                        ;;
+                    show)
+                        _arguments '1:: :' \
+                            "(-)2:distribution:$publish_dists_uniq" "3::$endpoint_prefix:$publish_prefixes_uniq"
                         ;;
                 esac
                 ;;
