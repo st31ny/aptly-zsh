@@ -185,7 +185,7 @@ local keyring="*-keyring=[gpg keyring to use when verifying Release file (could 
                             $keyring \
                             "-with-sources=[download source packages in addition to binary packages]:$bool" \
                             "-with-udebs=[download .udeb packages (Debian installer support)]:$bool" \
-                            "(-)2:new mirror name: " ":archive url:_urls" ":distribution:($dists)" ":components:_values -s ' ' components $components"
+                            "(-)2:new mirror name: " ":archive url:_urls" ":distribution:($dists)" "*:components:_values -s ' ' components $components"
                         ;;
                     list)
                         _arguments '1:: :' \
@@ -281,7 +281,7 @@ local keyring="*-keyring=[gpg keyring to use when verifying Release file (could 
                         _arguments \
                             "-dry-run=[don’t import, just show what would be imported]:$bool" \
                             "-with-deps=[follow dependencies when processing package−spec]:$bool" \
-                            "(-)2:src mirror name:$mirrors" ":dest repo name:$repos" ":$aptly_query"
+                            "(-)2:src mirror name:$mirrors" ":dest repo name:$repos" "*:$aptly_query"
                         ;;
                     list)
                         _arguments '1:: :' \
@@ -291,7 +291,7 @@ local keyring="*-keyring=[gpg keyring to use when verifying Release file (could 
                         _arguments \
                             "-dry-run=[don’t move, just show what would be moved]:$bool" \
                             "-with-deps=[follow dependencies when processing package−spec]:$bool" \
-                            "(-)2:srv repo name:$repos" ":dest repo name:$repos" ":$aptly_query"
+                            "(-)2:srv repo name:$repos" ":dest repo name:$repos" "*:$aptly_query"
                         ;;
                     remove)
                         _arguments \
@@ -480,7 +480,7 @@ local keyring="*-keyring=[gpg keyring to use when verifying Release file (could 
                             ${publish_update_options[@]} \
                             ${components_options[@]} \
                             "(-)2:distribution:$publish_dists_uniq" "3::$endpoint_prefix:$publish_prefixes_uniq" \
-                            "4:new snapshot name:$snapshots"
+                            "*:new snapshot name:$snapshots"
                         ;;
                     update)
                         _arguments \
